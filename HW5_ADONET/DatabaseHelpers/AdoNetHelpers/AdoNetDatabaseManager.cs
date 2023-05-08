@@ -1,94 +1,30 @@
 ﻿using System.Data;
+using HW_ADONET__EFCore.DatabaseHelpers.Entities;
 using Microsoft.Data.SqlClient;
-using HW5_ADONET.DatabaseHelpers.Entities;
 
-namespace HW5_ADONET.DatabaseHelpers
+namespace HW_ADONET__EFCore.DatabaseHelpers.AdoNetHelpers
 {
-    internal class DatabaseManager
+    internal class AdoNetDatabaseManager : IDatabaseManager
     {
+        private const string ORDER_INFO_SQL_EXPRESSION = 
+                    @"SELECT o.ord_id, o.ord_datetime, a.an_price, a.an_name, g.gr_name FROM dbo.Orders o
+                    INNER JOIN dbo.Analysis a ON a.an_id = o.ord_an
+                    INNER JOIN dbo.Groups g ON g.gr_id = a.an_group
+                    WHERE Year(o.ord_datetime) = (SELECT Year(MAX(ord_datetime)) FROM dbo.Orders)";
+
         private readonly string _connectionString;
 
-        public DatabaseManager(string connectionString)
+        public AdoNetDatabaseManager(string connectionString)
         {
             _connectionString = connectionString;
         }
 
-        public IEnumerable<OrderInfo>? GetOrdersViaSqlDataReader(string sqlExpression)
+        public IEnumerable<OrderInfo>? GetLastYearOrdersInfo()
         {
-            var ordersInfo = new List<OrderInfo>();
-
-            using (var connection = new SqlConnection(_connectionString))
-            {
-                connection.Open();
-
-                var command = connection.CreateCommand();
-                command.CommandText = sqlExpression;
-
-                using (var reader = command.ExecuteReader())
-                {
-                    if (reader.HasRows)
-                    {
-                        while (reader.Read())
-                        {
-                            var orderInfo = new OrderInfo
-                            {
-                                Id = reader.GetInt32("ord_id"),
-                                OrderDateTime = reader.GetDateTime("ord_datetime"),
-                                Price = reader.GetDecimal("an_price"),
-                                Name = reader.GetString("an_name"),
-                                GroupName = reader.GetString("gr_name")
-                            };
-
-                            ordersInfo.Add(orderInfo);
-                        }
-
-                        return ordersInfo;
-                    }
-
-                    return null;
-                }
-            }
+            return GetLastYearOrdersViaSqlDataReader();
         }
 
-        public IEnumerable<OrderInfo>? GetOrdersViaSqlDataAdapter(string sqlExpression)
-        {
-            var ordersInfo = new List<OrderInfo>();
-
-            using (var connection = new SqlConnection(_connectionString))
-            {
-                using (var adapter = new SqlDataAdapter(sqlExpression, connection))
-                {
-                    var dataSet = new DataSet();
-                    adapter.Fill(dataSet);
-
-                    foreach (DataTable table in dataSet.Tables)
-                    {
-                        if (table.Rows.Count == 0)
-                        {
-                            return null;
-                        }
-
-                        foreach (DataRow row in table.Rows)
-                        {
-                            var orderInfo = new OrderInfo
-                            {
-                                Id = (int)row.ItemArray[0]!,
-                                OrderDateTime = (DateTime)row.ItemArray[1]!,
-                                Price = (decimal)row.ItemArray[2]!,
-                                Name = (string)row.ItemArray[3]!,
-                                GroupName = (string)row.ItemArray[4]!
-                            };
-
-                            ordersInfo.Add(orderInfo);
-                        }
-                    }
-
-                    return ordersInfo;
-                }
-            }
-        }
-
-        public int CreateOrder(OrdersEntity order)
+        public int CreateOrder(OrderEntity order)
         {
             using (var connection = new SqlConnection(_connectionString))
             {
@@ -106,7 +42,7 @@ namespace HW5_ADONET.DatabaseHelpers
             }
         }
 
-        public int UpdateOrder(OrdersEntity order)
+        public int UpdateOrder(OrderEntity order)
         {
             using (var connection = new SqlConnection(_connectionString))
             {
@@ -140,7 +76,7 @@ namespace HW5_ADONET.DatabaseHelpers
             }
         }
 
-        public OrdersEntity? GetOrderById(int id)
+        public OrderEntity? GetOrderById(int id)
         {
             using (var connection = new SqlConnection(_connectionString))
             {
@@ -157,7 +93,7 @@ namespace HW5_ADONET.DatabaseHelpers
                         return null;
                     }
 
-                    var order = new OrdersEntity
+                    var order = new OrderEntity
                     {
                         Id = reader.GetInt32("ord_id"),
                         OrderDateTime = reader.GetDateTime("ord_datetime"),
@@ -169,7 +105,7 @@ namespace HW5_ADONET.DatabaseHelpers
             }
         }
 
-        public OrdersEntity? GetLastOrder()
+        public OrderEntity? GetLastOrder()
         {
             using (var connection = new SqlConnection(_connectionString))
             {
@@ -185,13 +121,89 @@ namespace HW5_ADONET.DatabaseHelpers
                         return null;
                     }
 
-                    var order = new OrdersEntity
+                    var order = new OrderEntity
                     {
                         Id = reader.GetInt32("ord_id"),
                         OrderDateTime = reader.GetDateTime("ord_datetime"),
                         AnalysisId = reader.GetInt32("ord_an")
                     };
                     return order;
+                }
+            }
+        }
+
+
+        public IEnumerable<OrderInfo>? GetLastYearOrdersViaSqlDataAdapter()
+        {
+            var ordersInfo = new List<OrderInfo>();
+
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                using (var adapter = new SqlDataAdapter(ORDER_INFO_SQL_EXPRESSION, connection))
+                {
+                    var dataSet = new DataSet();
+                    adapter.Fill(dataSet);
+
+                    foreach (DataTable table in dataSet.Tables)
+                    {
+                        if (table.Rows.Count == 0)
+                        {
+                            return null;
+                        }
+
+                        foreach (DataRow row in table.Rows)
+                        {
+                            var orderInfo = new OrderInfo
+                            {
+                                Id = (int)row.ItemArray[0]!,
+                                OrderDateTime = (DateTime)row.ItemArray[1]!,
+                                Price = (decimal)row.ItemArray[2]!,
+                                Name = (string)row.ItemArray[3]!,
+                                GroupName = (string)row.ItemArray[4]!
+                            };
+
+                            ordersInfo.Add(orderInfo);
+                        }
+                    }
+
+                    return ordersInfo;
+                }
+            }
+        }
+
+        private IEnumerable<OrderInfo>? GetLastYearOrdersViaSqlDataReader()
+        {
+            var ordersInfo = new List<OrderInfo>();
+
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+
+                var command = connection.CreateCommand();
+                command.CommandText = ORDER_INFO_SQL_EXPRESSION;
+
+                using (var reader = command.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        while (reader.Read())
+                        {
+                            var orderInfo = new OrderInfo
+                            {
+                                Id = reader.GetInt32("ord_id"),
+                                OrderDateTime = reader.GetDateTime("ord_datetime"),
+                                Price = reader.GetDecimal("an_price"),
+                                Name = reader.GetString("an_name"),
+                                GroupName = reader.GetString("gr_name")
+                            };
+
+                            ordersInfo.Add(orderInfo);
+                        }
+
+                        return ordersInfo;
+                    }
+
+                    return null;
                 }
             }
         }

@@ -1,4 +1,4 @@
-﻿namespace HW5_ADONET
+﻿namespace HW_ADONET__EFCore
 {
     internal class Program
     {

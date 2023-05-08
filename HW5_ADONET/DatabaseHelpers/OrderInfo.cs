@@ -1,4 +1,4 @@
-﻿namespace HW5_ADONET.DatabaseHelpers
+﻿namespace HW_ADONET__EFCore.DatabaseHelpers
 {
     public class OrderInfo
     {
